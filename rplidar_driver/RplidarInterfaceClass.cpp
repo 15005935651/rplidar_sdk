@@ -3,24 +3,37 @@
 #include <iostream>
 
 
-int main() {
-	std::cout << "hello";
-
-
-	RplidarInterfaceClass* s = new RplidarInterfaceClass;
-	s->ConnectRplidars();
-	s->StartMotors();
-	s->StartScans();
-
-	std::cin.get();
-	for (int i = 0; i < 100; i++)
-		s->GetDatas();
-	s->StopMotors();
-	s->StopScans();
-	s->DisConnectRplidars();
-
-	return 0;
-}
+//
+//int main() {
+//	std::cout << "hello";
+//
+//
+//	RplidarInterfaceClass* s = new RplidarInterfaceClass;
+//	s->ConnectRplidars();
+//	s->StartMotors();
+//	s->StartScans();
+//
+//	std::cin.get();
+//	
+//
+//	vector<RplidarData> rplidarDatas ;
+//	rplidarDatas = s->GetDatas();
+//	for(RplidarData rpd : rplidarDatas)
+//	{
+//		cout << rpd.angle;
+//		cout << rpd.distance;
+//
+//	}
+//	rplidarDatas.clear();
+//
+//	s->StopMotors();
+//	s->StopScans();
+//	s->DisConnectRplidars();
+//	delete s;
+//	s = nullptr;
+//
+//	return 0;
+//}
 
 RplidarInterfaceClass::RplidarInterfaceClass()
 {
@@ -29,9 +42,9 @@ RplidarInterfaceClass::RplidarInterfaceClass()
 
 RplidarInterfaceClass::~RplidarInterfaceClass()
 {
-	StopScans();
+	/*StopScans();
 	StopMotors();
-	DisConnectRplidars();
+	DisConnectRplidars();*/
 }
 
 //连接雷达
@@ -112,39 +125,26 @@ bool RplidarInterfaceClass::StartScans()
 		return  false;
 	}
 }
-//采集数据
-void RplidarInterfaceClass::GetDatas()
-{
 
-	
-	//TempData.Init(FVector2D(0,0),720);
+//采集数据
+bool RplidarInterfaceClass::GetDatas(RplidarData *temp)
+{
 	if (!isScan) {
-		return ;
+		return false;
 	}
 	rplidar_response_measurement_node_t nodes[360 * 2];
 	size_t   count = _countof(nodes);
 	if (IS_OK(drv->grabScanData(nodes, count))) {
 		drv->ascendScanData(nodes, count);
 		for (int pos = 0; pos < static_cast<int>(count); pos++) {
-			float angle = (nodes[pos].angle_q6_checkbit >> RPLIDAR_RESP_MEASUREMENT_ANGLE_SHIFT) / 64.0f;
-			float distance = nodes[pos].distance_q2 / 4.0f;
-			std::cout << angle << " " << distance<<std::endl;
-			
-
-			//if (angle < 90 || angle>270)
-			//{
-			//	float x = distance * cos(angle*pi / 180);
-			//	float y = distance * sin(angle*pi / 180);
-
-			//	if (x > LeftDownAreaPoints.X&&x < RightUpAreaPoints.X)
-			//	{
-			//		if (y > LeftDownAreaPoints.Y&&y < RightUpAreaPoints.Y)
-			//		{
-			//			TempData.AddUnique(FVector2D(x, y));
-			//		}
-			//	}
-			//}
+			temp[pos].angle = (nodes[pos].angle_q6_checkbit >> RPLIDAR_RESP_MEASUREMENT_ANGLE_SHIFT) / 64.0f;
+			temp[pos].distance = nodes[pos].distance_q2 / 4.0f;
 		}
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 
 	
@@ -204,6 +204,7 @@ bool RplidarInterfaceClass::DisConnectRplidars()
 		if (drv != nullptr) {
 			drv->disconnect();
 			drv->DisposeDriver(drv);
+			//drv = nullptr;
 			//断开连接成功
 			isConnected = false;
 			return true;
@@ -219,41 +220,48 @@ bool RplidarInterfaceClass::DisConnectRplidars()
 }
 
 //导出函数
-static RplidarInterfaceClass rplidarInterface;
+RplidarInterfaceClass *rplidarInterface;
 
-//extern "C" {
-//
-//	_DLLEXPORT bool ConnectRplidar() {
-//		
-//		printf("雷达连接成功");
-//		return rplidarInterface.ConnectRplidar();
-//	}
-//
-//	_DLLEXPORT bool DisConnectRplidar() {
-//		printf("断开连接");
-//		return rplidarInterface.DisConnectRplidar();
-//	}
-//
-//	_DLLEXPORT bool StartMotor() {
-//		return rplidarInterface.StartMotor();
-//	}
-//
-//	_DLLEXPORT bool StartScan() {
-//		return rplidarInterface.StartScan();
-//	}
-//
-//	_DLLEXPORT bool StopScan() {
-//		return rplidarInterface.StopScan();
-//	}
-//
-//	_DLLEXPORT bool StopMotor() {
-//		return rplidarInterface.StopMotor();
-//	}
-//
-//	_DLLEXPORT bool DisConnectRplidar() {
-//		return rplidarInterface.DisConnectRplidar();
-//	}
-//
-//
-//}
+extern "C" {
+
+	_DLLEXPORT bool ConnectRplidar() {
+		
+		printf("雷达连接成功");
+		rplidarInterface = new RplidarInterfaceClass;
+		return rplidarInterface->ConnectRplidars();
+	}
+
+	_DLLEXPORT bool DisConnectRplidar() {
+		printf("断开连接");
+		rplidarInterface->DisConnectRplidars();
+		delete rplidarInterface;
+		rplidarInterface = nullptr;
+		return true;
+	}
+
+	_DLLEXPORT bool StartMotor() {
+		return rplidarInterface->StartMotors();
+	}
+
+	_DLLEXPORT bool StartScan() {
+		return rplidarInterface->StartScans();
+	}
+
+	_DLLEXPORT bool StopScan() {
+		return rplidarInterface->StopScans();
+	}
+
+	_DLLEXPORT bool StopMotor() {
+		return rplidarInterface->StopMotors();
+	}
+
+	_DLLEXPORT bool GetData(RplidarData * data) {
+
+		return rplidarInterface->GetDatas(data);
+		
+	}
+
+
+
+}
 

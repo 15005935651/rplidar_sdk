@@ -5,9 +5,17 @@
 
 #include<vector>
 
-//#define _DLLEXPORT __declspec(dllexport)
+#define _DLLEXPORT __declspec(dllexport)
 
 using  namespace  rp::standalone::rplidar;
+using namespace std;
+
+struct RplidarData
+{
+	float angle;
+	float distance;
+};
+
 
 class RplidarInterfaceClass
 {
@@ -26,7 +34,7 @@ public:
 
 
 	//获取数据
-	void GetDatas();
+	bool GetDatas(RplidarData *temp);
 
 	//停止扫描
 	bool StopScans();
@@ -36,6 +44,9 @@ public:
 
 	//断开连接释放驱动
 	bool DisConnectRplidars();
+
+
+
 
 private:
 	//端口号
